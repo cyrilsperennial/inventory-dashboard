@@ -259,8 +259,8 @@
       <span class="sec-ttl" id="dataSecTitle">Monthly Data: Bees and Hornets</span>
       <div class="sec-hdr-right">
         <div class="seg-wrap">
-          <button class="seg-btn act" id="vt-chart" onclick="setChartOrTable('chart')"><i class="ti ti-chart-bar"></i>Chart</button>
-          <button class="seg-btn"     id="vt-table" onclick="setChartOrTable('table')"><i class="ti ti-table"></i>Table</button>
+          <button class="seg-btn"     id="vt-chart" onclick="setChartOrTable('chart')"><i class="ti ti-chart-bar"></i>Chart</button>
+          <button class="seg-btn act" id="vt-table" onclick="setChartOrTable('table')"><i class="ti ti-table"></i>Table</button>
         </div>
         <div class="seg-wrap">
           <button class="seg-btn act" id="vt-month" onclick="setDataView('month')"><i class="ti ti-calendar-month"></i>Months</button>
@@ -268,7 +268,7 @@
         </div>
       </div>
     </div>
-    <div id="chartView">
+    <div id="chartView" style="display:none">
       <div style="position:relative;width:100%;height:280px">
         <canvas id="barChart" role="img" aria-label="Clustered bar chart showing AV Shipments, Received, and Delivered to Customers by period.">Inventory chart.</canvas>
       </div>
@@ -278,7 +278,7 @@
         <span class="li"><span class="lsq" style="background:#639922"></span>Delivered to Customers</span>
       </div>
     </div>
-    <div id="tableView" style="display:none">
+    <div id="tableView">
       <div class="tbl-outer">
         <table><thead><tr id="tblHead"></tr></thead><tbody id="tblBody"></tbody></table>
       </div>
@@ -296,17 +296,17 @@ const LIVE_DATA = {
   Bee: {
     av:  [20,928,0,0,34039,1280,716,16320,1141,14048,5120,8770,13800,12280,13520,6000,2160,160,0,0,20,50,0],
     rcv: [0,0,0,0,26816,0,0,0,25708,0,26912,4704,10760,7270,13360,11520,10280,3120,1984,30688,0,0,0],
-    dlv: [700,1517,3500,11020,3096,3860,5836,8870,8834,8568,6938,8037,2674,1590,5300,5790,7586,6652,4302,6935,7011,6160,5531]
+    dlv: [700, 1517, 3500, 11020, 3096, 3860, 5836, 8870, 8834, 8568, 6938, 8037, 2674, 1590, 5300, 5790, 7586, 6652, 4302, 6935, 7011, 6160, 5531]
   },
   Hornet: {
     av:  [0,980,3080,0,0,0,1544,0,1896,1704,2400,1248,1448,11160,2152,1060,892,1266,1856,928,1120,140,6572],
     rcv: [0,0,0,0,980,0,0,0,1544,0,6804,1312,1336,10808,1988,1072,2108,9450,508,1584,3256,1624,2452],
-    dlv: [160,341,623,1555,2085,95,20,61,1082,1606,2173,1724,1149,1455,2260,1090,1080,1358,1900,1200,1470,1700,2130]
+    dlv: [160, 341, 623, 1555, 2085, 95, 20, 61, 1082, 1606, 2173, 1724, 1149, 1455, 2260, 1090, 1080, 1358, 1900, 1200, 1470, 1700, 2130]
   }
 };
 const LIVE_INV = {
-  Bee:    { Configured: 20081, WIP: 40000, Rework: 7500,  Scrap: 2500 },
-  Hornet: { Configured: 11118, WIP: 15000, Rework: 3500,  Scrap: 1500 }
+  Bee:    { Configured: 22618, WIP: 30000, Rework: 7000, Scrap: 3000 },
+  Hornet: { Configured: 10280, WIP: 14500, Rework: 3750, Scrap: 1750 }
 };
 const BOH = { Bee: 27266, Hornet: 12609 };
 
@@ -359,7 +359,7 @@ let drTypeMode   = 'month';
 let drFromIdx    = 0, drToIdx = MAX_WW - 1;
 let pendingFrom  = 1, pendingTo = MAX_WW;
 let pendingMF    = MIN_MONTH, pendingMT = MAX_MONTH;
-let viewMode     = 'chart';   // 'chart' | 'table'
+let viewMode     = 'table';   // 'chart' | 'table'
 let dataView     = 'month';   // 'month' | 'week'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -371,9 +371,11 @@ const sum   = (arr,f,t) => arr.slice(f,t).reduce((a,b) => a+b, 0);
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const wwLbl = m  => `WW${String(m.ww).padStart(2,'0')}'${String(m.yr).padStart(2,'0')}`;
 const ddLbl = k  => { if(!k) return ''; const [y,mo,d]=k.split('-').map(Number); return `${mo}/${d}/${String(y).slice(-2)}`; };
-const pgLbl = () => selectedPGs.length===2 ? 'Bees and Hornets' : (selectedPGs[0]==='Bee' ? 'Bees' : 'Hornets');
+const pgLbl = () => selectedPGs.length === 0 ? 'None selected' : selectedPGs.length === 2 ? 'Bees and Hornets' : (selectedPGs[0]==='Bee' ? 'Bees' : 'Hornets');
 
 function combined() {
+  const zeros = Array(MAX_WW).fill(0);
+  if (selectedPGs.length === 0) return { av:[...zeros], rcv:[...zeros], dlv:[...zeros] };
   if (selectedPGs.length === 1) {
     const pg = selectedPGs[0];
     return { av:[...currentData[pg].av], rcv:[...currentData[pg].rcv], dlv:[...currentData[pg].dlv] };
@@ -386,6 +388,7 @@ function combined() {
 }
 
 function combinedInv() {
+  if (selectedPGs.length === 0) return { Configured: 0, WIP: 0, Rework: 0, Scrap: 0 };
   if (selectedPGs.length === 1) return currentInv[selectedPGs[0]];
   const c = {};
   Object.keys(currentInv.Bee).forEach(k => c[k] = currentInv.Bee[k] + currentInv.Hornet[k]);
@@ -418,6 +421,7 @@ function monthlyData(comb) {
 }
 
 function accentForPG() {
+  if (selectedPGs.length === 0) return { color:'#c8c7c0', bg:'#f0efe9', tx:'#6b6b60' };
   if (selectedPGs.length === 2) return { color:'#378ADD', bg:'#EDF4FD', tx:'#1a3a6a' };
   if (selectedPGs[0] === 'Bee') return { color:'#378ADD', bg:'#EDF4FD', tx:'#1a3a6a' };
   return { color:'#639922', bg:'#EDF5E3', tx:'#285a10' };
@@ -524,7 +528,6 @@ function updateDataTitle() {
 ═══════════════════════════════════════════════════════════════ */
 function togglePG(pg) {
   if (selectedPGs.includes(pg)) {
-    if (selectedPGs.length === 1) return;
     selectedPGs = selectedPGs.filter(p => p !== pg);
   } else {
     selectedPGs.push(pg); selectedPGs.sort();
