@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory Tracker</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  /* ── Reset & base ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #f7f6f2;
+    color: #1a1a18;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Layout wrapper ───────────────────────────────────────── */
+  .db {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 3rem;
+  }
+
+  /* ── Tokens ───────────────────────────────────────────────── */
+  :root {
+    --bg0: #f7f6f2;
+    --bg1: #ffffff;
+    --bg2: #f0efe9;
+    --bg3: #e8e7e0;
+    --bd:  #e0dfd8;
+    --bd2: #c8c7c0;
+    --tx1: #1a1a18;
+    --tx2: #6b6b60;
+    --tx3: #9a9a8e;
+    --c-av:   #378ADD;  --c-av-bg:  #EDF4FD;
+    --c-rc:   #EF9F27;  --c-rc-bg:  #FDF4E7;
+    --c-dl:   #639922;  --c-dl-bg:  #EDF5E3;
+    --r-md: 8px;
+    --r-lg: 12px;
+    --r-pill: 999px;
+  }
+
+  /* ── Header ───────────────────────────────────────────────── */
+  .db-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 8px; }
+  .db-title  { font-size: 22px; font-weight: 500; color: var(--tx1); margin-bottom: 3px; }
+  .db-sub    { font-size: 13px; color: var(--tx2); display: flex; align-items: center; gap: 6px; }
+  .snap-live { font-size: 11px; padding: 3px 10px; border-radius: var(--r-pill); background: #EDF5E3; color: #285a10; font-weight: 500; border: 0.5px solid #639922; white-space: nowrap; }
+  .snap-hist { font-size: 11px; padding: 3px 10px; border-radius: var(--r-pill); background: #EDF4FD; color: #1a3a6a; font-weight: 500; border: 0.5px solid #378ADD; white-space: nowrap; }
+
+  /* ── Filter bar ───────────────────────────────────────────── */
+  .filter-bar { background: var(--bg1); border: 0.5px solid var(--bd); border-radius: var(--r-lg); padding: 12px 16px; margin-bottom: 1.25rem; }
+  .filter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .filter-row + .filter-row { margin-top: 10px; padding-top: 10px; border-top: 0.5px solid var(--bd); }
+  .fdiv  { width: 0.5px; height: 18px; background: var(--bd2); flex-shrink: 0; }
+  .flbl  { font-size: 12px; color: var(--tx2); white-space: nowrap; font-weight: 500; }
+
+  /* Product chips */
+  .pg-chip { font-size: 12px; padding: 4px 12px; border-radius: var(--r-pill); border: 0.5px solid var(--bd2); background: var(--bg1); color: var(--tx2); cursor: pointer; user-select: none; font-weight: 500; transition: all .15s; }
+  .pg-chip.ab { background: #EDF4FD; color: #1a3a6a; border-color: #378ADD; }
+  .pg-chip.ah { background: #EDF5E3; color: #285a10; border-color: #639922; }
+
+  /* Date range type toggles */
+  .dr-toggle { display: flex; gap: 4px; }
+  .drt { font-size: 12px; padding: 5px 14px; border-radius: var(--r-pill); border: 0.5px solid var(--bd2); cursor: pointer; white-space: nowrap; font-weight: 500; background: var(--bg1); color: var(--tx2); transition: all .15s; }
+  .drt.act { color: var(--tx1); border-color: var(--tx1); }
+
+  /* Range badge */
+  .dr-badge { font-size: 12px; padding: 5px 12px; border-radius: var(--r-pill); background: var(--bg1); color: var(--tx2); cursor: pointer; display: flex; align-items: center; gap: 5px; border: 0.5px solid var(--bd2); font-weight: 500; }
+  .dr-badge:hover { color: var(--tx1); }
+
+  /* View History button */
+  .pop-btn { display: flex; align-items: center; gap: 5px; font-size: 12px; padding: 5px 12px; cursor: pointer; white-space: nowrap; border-radius: var(--r-pill); border: 0.5px solid var(--bd2); background: var(--bg1); color: var(--tx2); font-weight: 500; transition: all .15s; }
+  .pop-btn:hover { color: var(--tx1); }
+
+  /* ── Popups ───────────────────────────────────────────────── */
+  .popup-wrap   { position: relative; display: inline-block; }
+  .popup-panel  { display: none; position: absolute; top: calc(100% + 6px); left: 0; background: var(--bg1); border: 0.5px solid var(--bd2); border-radius: var(--r-lg); padding: 14px; z-index: 200; min-width: 200px; box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+  .popup-panel.open { display: block; }
+  .dr-row       { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .dr-row:last-of-type { margin-bottom: 0; }
+  .dr-row-lbl   { font-size: 12px; color: var(--tx2); width: 32px; flex-shrink: 0; }
+  .dr-inp       { width: 64px; font-size: 12px; padding: 4px 8px; border: 0.5px solid var(--bd2); border-radius: var(--r-md); background: var(--bg1); color: var(--tx1); text-align: center; }
+  .dr-inp:focus { outline: none; box-shadow: 0 0 0 2px rgba(55,138,221,.2); }
+  .dr-msel      { font-size: 12px; flex: 1; background: var(--bg1); color: var(--tx1); border: 0.5px solid var(--bd2); border-radius: var(--r-md); padding: 4px 6px; }
+  .dr-apply     { font-size: 12px; padding: 7px 14px; margin-top: 12px; width: 100%; cursor: pointer; border-radius: var(--r-md); background: var(--tx1); color: #fff; border: none; font-weight: 600; }
+  .dr-apply:hover { opacity: .85; }
+
+  /* Calendar */
+  .cal-nav      { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .cal-nav-btn  { background: none; border: none; cursor: pointer; color: var(--tx2); padding: 3px 6px; border-radius: var(--r-md); font-size: 14px; }
+  .cal-nav-btn:hover { background: var(--bg2); color: var(--tx1); }
+  .cal-month-lbl { font-size: 13px; font-weight: 500; color: var(--tx1); }
+  .cal-grid     { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+  .cal-dow      { font-size: 11px; color: var(--tx3); text-align: center; padding: 2px 0; font-weight: 500; }
+  .cal-day      { font-size: 12px; text-align: center; padding: 4px 2px; border-radius: var(--r-md); color: var(--tx2); }
+  .cal-day.hs   { color: var(--tx1); cursor: pointer; background: var(--bg2); }
+  .cal-day.hs:hover { background: #EDF4FD; color: #1a3a6a; }
+  .cal-day.sel  { background: #EDF4FD; color: #1a3a6a; font-weight: 500; }
+  .cal-day.tl   { background: #EDF5E3; color: #285a10; cursor: pointer; font-weight: 500; }
+  .cal-footer   { display: flex; gap: 10px; margin-top: 10px; padding-top: 8px; border-top: 0.5px solid var(--bd); }
+  .cal-leg      { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--tx2); }
+  .cal-leg-dot  { width: 7px; height: 7px; border-radius: 50%; }
+
+  /* ── Sections ─────────────────────────────────────────────── */
+  .section  { background: var(--bg1); border: 0.5px solid var(--bd); border-radius: var(--r-lg); padding: 1.25rem; margin-bottom: 1rem; }
+  .sec-hdr  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.1rem; flex-wrap: wrap; gap: 8px; }
+  .sec-ttl  { font-size: 11px; font-weight: 500; color: var(--tx2); text-transform: uppercase; letter-spacing: .08em; }
+  .sec-sub  { font-size: 12px; color: var(--tx2); }
+  .sec-hdr-right { display: flex; align-items: center; gap: 8px; }
+
+  /* Chart/Table + Months/Weeks toggles */
+  .seg-wrap { display: flex; gap: 4px; }
+  .seg-btn  { font-size: 12px; padding: 5px 13px; border-radius: var(--r-pill); border: 0.5px solid var(--bd2); cursor: pointer; display: flex; align-items: center; gap: 5px; white-space: nowrap; font-weight: 500; background: var(--bg1); color: var(--tx2); transition: all .15s; }
+  .seg-btn i { font-size: 13px; }
+  .seg-btn.act { color: var(--tx1); border-color: var(--tx1); }
+
+  /* ── KPI cards ────────────────────────────────────────────── */
+  .kpi-row  { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 1rem; }
+  .kpi      { border-radius: var(--r-lg); padding: 1.1rem 1.25rem; display: flex; flex-direction: column; gap: 10px; background: var(--bg1); }
+  .kpi.av   { border: 1px solid var(--c-av); }
+  .kpi.rc   { border: 1px solid var(--c-rc); }
+  .kpi.dl   { border: 1px solid var(--c-dl); }
+  .kpi-badge { font-size: 12px; font-weight: 500; padding: 3px 12px; border-radius: var(--r-pill); white-space: nowrap; align-self: flex-start; }
+  .kpi.av .kpi-badge { background: var(--c-av-bg); color: #1a3a6a; }
+  .kpi.rc .kpi-badge { background: var(--c-rc-bg); color: #6b3a00; }
+  .kpi.dl .kpi-badge { background: var(--c-dl-bg); color: #285a10; }
+  .kpi-lbl  { font-size: 11px; color: var(--tx2); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
+  .kpi-val  { font-size: 24px; font-weight: 500; color: var(--tx1); }
+  .kpi-desc { font-size: 12px; color: var(--tx2); line-height: 1.4; margin-top: auto; }
+
+  /* ── Inventory snapshot ───────────────────────────────────── */
+  .inv-panel    { border-radius: var(--r-lg); padding: 1rem 1.25rem; background: var(--bg2); border: 0.5px solid var(--bd); }
+  .inv-hdr      { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: .9rem; }
+  .inv-title    { font-size: 13px; font-weight: 500; color: var(--tx1); }
+  .inv-date     { font-size: 11px; padding: 2px 8px; border-radius: var(--r-pill); font-weight: 500; }
+  .inv-metrics  { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; margin-bottom: .9rem; }
+  .im           { background: var(--bg1); border-radius: var(--r-md); padding: 10px 12px; border: 0.5px solid var(--bd); }
+  .im-lbl       { font-size: 11px; color: var(--tx2); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 4px; }
+  .im-val       { font-size: 16px; font-weight: 500; }
+  .flow-rows    { display: flex; flex-direction: column; gap: 6px; }
+  .flow-row     { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .fl           { width: 72px; flex-shrink: 0; color: var(--tx2); }
+  .fb           { flex: 1; height: 5px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+  .ff           { height: 100%; border-radius: 4px; }
+  .fpct         { width: 36px; text-align: right; color: var(--tx2); font-size: 11px; flex-shrink: 0; }
+
+  /* ── Chart legend ─────────────────────────────────────────── */
+  .chart-legend { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; margin-top: 12px; }
+  .li           { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--tx2); }
+  .lsq          { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── Table ────────────────────────────────────────────────── */
+  .tbl-outer    { overflow-x: auto; }
+  table         { border-collapse: collapse; font-size: 12px; white-space: nowrap; width: 100%; }
+  thead th      { font-weight: 500; color: var(--tx2); padding: 6px 8px; text-align: right; border-bottom: 0.5px solid var(--bd); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+  thead th:first-child { text-align: left; min-width: 160px; position: sticky; left: 0; background: var(--bg1); z-index: 2; }
+  tbody td      { padding: 6px 8px; text-align: right; border-bottom: 0.5px solid var(--bd); color: var(--tx1); }
+  tbody td:first-child { text-align: left; position: sticky; left: 0; background: var(--bg1); z-index: 1; }
+  tbody tr:hover td { background: var(--bg2); }
+  tbody tr:hover td:first-child { background: var(--bg2); }
+  .row-date td  { color: var(--tx3); font-size: 11px; }
+  .pill         { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: var(--r-pill); font-size: 11px; font-weight: 500; }
+  .p-av { background: #EDF4FD; color: #1a3a6a; }
+  .p-rc { background: #FDF4E7; color: #6b3a00; }
+  .p-dl { background: #EDF5E3; color: #285a10; }
+
+  /* ── Responsive ───────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    .kpi-row     { grid-template-columns: 1fr; }
+    .inv-metrics { grid-template-columns: 1fr 1fr; }
+    .db          { padding: 1rem .75rem 2rem; }
+  }
+</style>
+</head>
+<body>
+<div class="db">
+
+  <!-- ── Header ── -->
+  <div class="db-header">
+    <div>
+      <p class="db-title">Inventory tracker</p>
+      <p class="db-sub">
+        <span id="viewBadge" class="snap-live">Live Data</span>
+        <span id="viewingLabel">Bees and Hornets</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Filter bar ── -->
+  <div class="filter-bar">
+    <div class="filter-row">
+      <!-- View History calendar popup -->
+      <div class="popup-wrap" id="calWrap">
+        <button class="pop-btn" onclick="togglePopup('calPanel')">
+          <i class="ti ti-calendar" aria-hidden="true"></i>
+          <span id="calBtnLabel">View History</span>
+          <i class="ti ti-chevron-down" aria-hidden="true" style="font-size:11px"></i>
+        </button>
+        <div class="popup-panel" id="calPanel" style="min-width:248px">
+          <div class="cal-nav">
+            <button class="cal-nav-btn" onclick="shiftMonth(-1)"><i class="ti ti-chevron-left" aria-hidden="true"></i></button>
+            <span class="cal-month-lbl" id="calMonthLbl"></span>
+            <button class="cal-nav-btn" onclick="shiftMonth(1)"><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
+          </div>
+          <div class="cal-grid" id="calGrid"></div>
+          <div class="cal-footer">
+            <span class="cal-leg"><span class="cal-leg-dot" style="background:#639922"></span>Today</span>
+            <span class="cal-leg"><span class="cal-leg-dot" style="background:#c8c7c0"></span>Snapshot</span>
+            <span class="cal-leg"><span class="cal-leg-dot" style="background:#378ADD"></span>Selected</span>
+          </div>
+        </div>
+      </div>
+      <div class="fdiv"></div>
+      <!-- Product chips -->
+      <span class="flbl">Products:</span>
+      <div style="display:flex;gap:5px">
+        <div class="pg-chip ab" id="chip-Bee" onclick="togglePG('Bee')">Bees</div>
+        <div class="pg-chip ah" id="chip-Hornet" onclick="togglePG('Hornet')">Hornets</div>
+      </div>
+    </div>
+    <div class="filter-row">
+      <!-- Date range type -->
+      <span class="flbl">Date Range Type:</span>
+      <div class="dr-toggle">
+        <button class="drt act" id="drBtnMonth" onclick="setDRType('month')">Month(s)</button>
+        <button class="drt"     id="drBtnWW"    onclick="setDRType('ww')">Work Week(s)</button>
+      </div>
+      <!-- Range picker popup -->
+      <div class="popup-wrap" id="drWrap">
+        <button class="dr-badge" onclick="togglePopup('drPanel')">
+          <i class="ti ti-sliders-horizontal" aria-hidden="true" style="font-size:13px"></i>
+          <span id="drRangeLabel">Jan'26–Jun'26</span>
+          <i class="ti ti-chevron-down" aria-hidden="true" style="font-size:11px"></i>
+        </button>
+        <div class="popup-panel" id="drPanel">
+          <div id="drPopupInner"></div>
+          <button class="dr-apply" onclick="applyDR()">Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Executive Summary ── -->
+  <div class="section">
+    <div class="sec-hdr">
+      <span class="sec-ttl">Executive Summary</span>
+      <span class="sec-sub" id="execSubLabel"></span>
+    </div>
+    <div class="kpi-row" id="kpiRow"></div>
+    <div id="invPanel"></div>
+  </div>
+
+  <!-- ── Monthly / Weekly Data ── -->
+  <div class="section">
+    <div class="sec-hdr">
+      <span class="sec-ttl" id="dataSecTitle">Monthly Data: Bees and Hornets</span>
+      <div class="sec-hdr-right">
+        <div class="seg-wrap">
+          <button class="seg-btn act" id="vt-chart" onclick="setChartOrTable('chart')"><i class="ti ti-chart-bar"></i>Chart</button>
+          <button class="seg-btn"     id="vt-table" onclick="setChartOrTable('table')"><i class="ti ti-table"></i>Table</button>
+        </div>
+        <div class="seg-wrap">
+          <button class="seg-btn act" id="vt-month" onclick="setDataView('month')"><i class="ti ti-calendar-month"></i>Months</button>
+          <button class="seg-btn"     id="vt-week"  onclick="setDataView('week')"><i class="ti ti-calendar-week"></i>Weeks</button>
+        </div>
+      </div>
+    </div>
+    <div id="chartView">
+      <div style="position:relative;width:100%;height:280px">
+        <canvas id="barChart" role="img" aria-label="Clustered bar chart showing AV Shipments, Received, and Delivered to Customers by period.">Inventory chart.</canvas>
+      </div>
+      <div class="chart-legend">
+        <span class="li"><span class="lsq" style="background:#378ADD"></span>AV Shipments</span>
+        <span class="li"><span class="lsq" style="background:#EF9F27"></span>Received</span>
+        <span class="li"><span class="lsq" style="background:#639922"></span>Delivered to Customers</span>
+      </div>
+    </div>
+    <div id="tableView" style="display:none">
+      <div class="tbl-outer">
+        <table><thead><tr id="tblHead"></tr></thead><tbody id="tblBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.db -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   DATA — replace these arrays with your Google Sheets fetch
+   once you have the sheet URL ready.
+═══════════════════════════════════════════════════════════════ */
+const LIVE_DATA = {
+  Bee: {
+    av:  [20,928,0,0,34039,1280,716,16320,1141,14048,5120,8770,13800,12280,13520,6000,2160,160,0,0,20,50,0],
+    rcv: [0,0,0,0,26816,0,0,0,25708,0,26912,4704,10760,7270,13360,11520,10280,3120,1984,30688,0,0,0],
+    dlv: [700,1517,3500,11020,3096,3860,5836,8870,8834,8568,6938,8037,2674,1590,5300,5790,7586,6652,4302,6935,7011,6160,5531]
+  },
+  Hornet: {
+    av:  [0,980,3080,0,0,0,1544,0,1896,1704,2400,1248,1448,11160,2152,1060,892,1266,1856,928,1120,140,6572],
+    rcv: [0,0,0,0,980,0,0,0,1544,0,6804,1312,1336,10808,1988,1072,2108,9450,508,1584,3256,1624,2452],
+    dlv: [160,341,623,1555,2085,95,20,61,1082,1606,2173,1724,1149,1455,2260,1090,1080,1358,1900,1200,1470,1700,2130]
+  }
+};
+const LIVE_INV = {
+  Bee:    { Configured: 20081, WIP: 40000, Rework: 7500,  Scrap: 2500 },
+  Hornet: { Configured: 11118, WIP: 15000, Rework: 3500,  Scrap: 1500 }
+};
+const BOH = { Bee: 27266, Hornet: 12609 };
+
+/* ═══════════════════════════════════════════════════════════════
+   WORKWEEK METADATA — extend this as new data arrives
+   month is 0-indexed (0 = Jan)
+═══════════════════════════════════════════════════════════════ */
+const WW_META = [
+  {ww:1,yr:26,month:0},{ww:2,yr:26,month:0},{ww:3,yr:26,month:0},{ww:4,yr:26,month:0},
+  {ww:5,yr:26,month:0},{ww:6,yr:26,month:1},{ww:7,yr:26,month:1},{ww:8,yr:26,month:1},
+  {ww:9,yr:26,month:1},{ww:10,yr:26,month:2},{ww:11,yr:26,month:2},{ww:12,yr:26,month:2},
+  {ww:13,yr:26,month:2},{ww:14,yr:26,month:2},{ww:15,yr:26,month:3},{ww:16,yr:26,month:3},
+  {ww:17,yr:26,month:3},{ww:18,yr:26,month:3},{ww:19,yr:26,month:4},{ww:20,yr:26,month:4},
+  {ww:21,yr:26,month:4},{ww:22,yr:26,month:4},{ww:23,yr:26,month:5}
+];
+const WW_DATES = [
+  '12/29/25','1/5/26','1/12/26','1/19/26','1/26/26','2/2/26','2/9/26','2/16/26','2/23/26',
+  '3/2/26','3/9/26','3/16/26','3/23/26','3/30/26','4/6/26','4/13/26','4/20/26','4/27/26',
+  '5/4/26','5/11/26','5/18/26','5/25/26','6/1/26'
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════════════════════ */
+const MO_CAL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MS      = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const INV_COLORS = { Configured: '#1D9E75', WIP: '#378ADD', Rework: '#EF9F27', Scrap: '#D60036' };
+const KPI_CFG = [
+  { key: 'av',  cls: 'av', badgeName: 'AV Shipped',          desc: 'Units produced and shipped from AV' },
+  { key: 'rcv', cls: 'rc', badgeName: 'Received',            desc: 'Units received by Svitla Doba' },
+  { key: 'dlv', cls: 'dl', badgeName: 'Delivered to Customers', desc: 'Units delivered to customers' }
+];
+const AVAIL_MONTHS  = [...new Set(WW_META.map(m => m.month))].sort((a,b) => a-b);
+const MAX_WW        = WW_META.length;
+const MAX_MONTH     = AVAIL_MONTHS[AVAIL_MONTHS.length - 1];
+const MIN_MONTH     = AVAIL_MONTHS[0];
+
+/* ═══════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════ */
+let currentData  = JSON.parse(JSON.stringify(LIVE_DATA));
+let currentInv   = JSON.parse(JSON.stringify(LIVE_INV));
+let snapshots    = [];
+let isLive       = true;
+let snapDate     = null;
+let barChart     = null;
+let calYear, calMonth;
+let selectedPGs  = ['Bee','Hornet'];
+let drTypeMode   = 'month';
+let drFromIdx    = 0, drToIdx = MAX_WW - 1;
+let pendingFrom  = 1, pendingTo = MAX_WW;
+let pendingMF    = MIN_MONTH, pendingMT = MAX_MONTH;
+let viewMode     = 'chart';   // 'chart' | 'table'
+let dataView     = 'month';   // 'month' | 'week'
+
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════ */
+const fmt   = n  => Math.round(n).toLocaleString();
+const pct   = (n,t) => t > 0 ? Math.round(n/t*100) + '%' : '0%';
+const sum   = (arr,f,t) => arr.slice(f,t).reduce((a,b) => a+b, 0);
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const wwLbl = m  => `WW${String(m.ww).padStart(2,'0')}'${String(m.yr).padStart(2,'0')}`;
+const ddLbl = k  => { if(!k) return ''; const [y,mo,d]=k.split('-').map(Number); return `${mo}/${d}/${String(y).slice(-2)}`; };
+const pgLbl = () => selectedPGs.length===2 ? 'Bees and Hornets' : (selectedPGs[0]==='Bee' ? 'Bees' : 'Hornets');
+
+function combined() {
+  if (selectedPGs.length === 1) {
+    const pg = selectedPGs[0];
+    return { av:[...currentData[pg].av], rcv:[...currentData[pg].rcv], dlv:[...currentData[pg].dlv] };
+  }
+  return {
+    av:  currentData.Bee.av.map((v,i)  => v + currentData.Hornet.av[i]),
+    rcv: currentData.Bee.rcv.map((v,i) => v + currentData.Hornet.rcv[i]),
+    dlv: currentData.Bee.dlv.map((v,i) => v + currentData.Hornet.dlv[i])
+  };
+}
+
+function combinedInv() {
+  if (selectedPGs.length === 1) return currentInv[selectedPGs[0]];
+  const c = {};
+  Object.keys(currentInv.Bee).forEach(k => c[k] = currentInv.Bee[k] + currentInv.Hornet[k]);
+  return c;
+}
+
+function slice() {
+  if (drTypeMode === 'month') {
+    const mf = Math.min(pendingMF, pendingMT), mt = Math.max(pendingMF, pendingMT);
+    const idx = WW_META.map((m,i) => m.month>=mf && m.month<=mt ? i : -1).filter(i => i>=0);
+    if (!idx.length) return { f:0, t:1 };
+    return { f: idx[0], t: idx[idx.length-1]+1 };
+  }
+  return { f: drFromIdx, t: drToIdx+1 };
+}
+
+function monthlyData(comb) {
+  const { f, t } = slice();
+  const labels=[], av=[], rcv=[], dlv=[];
+  AVAIL_MONTHS.forEach(mo => {
+    const idx = WW_META.map((m,i) => m.month===mo && i>=f && i<t ? i : -1).filter(i => i>=0);
+    if (!idx.length) return;
+    const yr = WW_META[idx[0]].yr;
+    labels.push(`${MS[mo]}'${String(yr).padStart(2,'0')}`);
+    av.push(sum(comb.av,  idx[0], idx[idx.length-1]+1));
+    rcv.push(sum(comb.rcv,idx[0], idx[idx.length-1]+1));
+    dlv.push(sum(comb.dlv,idx[0], idx[idx.length-1]+1));
+  });
+  return { labels, av, rcv, dlv };
+}
+
+function accentForPG() {
+  if (selectedPGs.length === 2) return { color:'#378ADD', bg:'#EDF4FD', tx:'#1a3a6a' };
+  if (selectedPGs[0] === 'Bee') return { color:'#378ADD', bg:'#EDF4FD', tx:'#1a3a6a' };
+  return { color:'#639922', bg:'#EDF5E3', tx:'#285a10' };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RANGE BADGE
+═══════════════════════════════════════════════════════════════ */
+function updateRangeBadge() {
+  if (drTypeMode === 'month') {
+    const mf = Math.min(pendingMF,pendingMT), mt = Math.max(pendingMF,pendingMT);
+    const fyYr = String(WW_META.find(m=>m.month===mf)?.yr||26).padStart(2,'0');
+    const tyYr = String(WW_META.find(m=>m.month===mt)?.yr||26).padStart(2,'0');
+    document.getElementById('drRangeLabel').textContent =
+      mf === mt ? `${MS[mf]}'${fyYr}` : `${MS[mf]}'${fyYr}–${MS[mt]}'${tyYr}`;
+  } else {
+    const fl = wwLbl(WW_META[pendingFrom-1]), tl = wwLbl(WW_META[pendingTo-1]);
+    document.getElementById('drRangeLabel').textContent = fl === tl ? fl : `${fl}–${tl}`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DR POPUP
+═══════════════════════════════════════════════════════════════ */
+function buildDRPopup() {
+  const el = document.getElementById('drPopupInner');
+  if (drTypeMode === 'ww') {
+    el.innerHTML = `
+      <div class="dr-row"><span class="dr-row-lbl">From</span><input class="dr-inp" id="drFromInp" type="number" min="1" max="${MAX_WW}" value="${pendingFrom}"></div>
+      <div class="dr-row"><span class="dr-row-lbl">To</span><input class="dr-inp" id="drToInp" type="number" min="1" max="${MAX_WW}" value="${pendingTo}"></div>`;
+  } else {
+    const mk = sel => AVAIL_MONTHS.map(i => `<option value="${i}"${i===sel?' selected':''}>${MS[i]}</option>`).join('');
+    el.innerHTML = `
+      <div class="dr-row"><span class="dr-row-lbl">From</span><select class="dr-msel" id="drMFromInp">${mk(pendingMF)}</select></div>
+      <div class="dr-row"><span class="dr-row-lbl">To</span><select class="dr-msel" id="drMToInp">${mk(pendingMT)}</select></div>`;
+  }
+}
+
+function applyDR() {
+  if (drTypeMode === 'ww') {
+    let f = parseInt(document.getElementById('drFromInp').value)||1,
+        t = parseInt(document.getElementById('drToInp').value)||MAX_WW;
+    f = Math.max(1, Math.min(MAX_WW,f));
+    t = Math.max(f, Math.min(MAX_WW,t));
+    pendingFrom=f; pendingTo=t; drFromIdx=f-1; drToIdx=t-1;
+  } else {
+    let mf = parseInt(document.getElementById('drMFromInp').value),
+        mt = parseInt(document.getElementById('drMToInp').value);
+    if (mf > mt) { const tmp=mf; mf=mt; mt=tmp; }
+    pendingMF=mf; pendingMT=mt;
+  }
+  updateRangeBadge(); closeAll(); renderAll();
+}
+
+function setDRType(type) {
+  drTypeMode = type;
+  document.getElementById('drBtnMonth').className = 'drt' + (type==='month'?' act':'');
+  document.getElementById('drBtnWW').className    = 'drt' + (type==='ww'?' act':'');
+  if (type==='ww') { pendingTo=MAX_WW; drToIdx=MAX_WW-1; }
+  else             { pendingMF=MIN_MONTH; pendingMT=MAX_MONTH; }
+  updateRangeBadge(); renderAll();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   POPUPS
+═══════════════════════════════════════════════════════════════ */
+function togglePopup(id) {
+  const open = document.getElementById(id).classList.contains('open');
+  closeAll();
+  if (!open) {
+    if (id==='drPanel') buildDRPopup();
+    document.getElementById(id).classList.add('open');
+  }
+}
+function closeAll() { document.querySelectorAll('.popup-panel').forEach(p => p.classList.remove('open')); }
+document.addEventListener('click', e => { if (!e.target.closest('.popup-wrap')) closeAll(); });
+
+/* ═══════════════════════════════════════════════════════════════
+   VIEW TOGGLES
+═══════════════════════════════════════════════════════════════ */
+function setDataView(v) {
+  dataView = v;
+  document.getElementById('vt-month').className = 'seg-btn' + (v==='month'?' act':'');
+  document.getElementById('vt-week').className  = 'seg-btn' + (v==='week'?' act':'');
+  updateDataTitle(); renderWeekly();
+}
+
+function setChartOrTable(v) {
+  viewMode = v;
+  document.getElementById('chartView').style.display = v==='chart' ? 'block' : 'none';
+  document.getElementById('tableView').style.display = v==='table' ? 'block' : 'none';
+  document.getElementById('vt-chart').className = 'seg-btn' + (v==='chart'?' act':'');
+  document.getElementById('vt-table').className = 'seg-btn' + (v==='table'?' act':'');
+  renderWeekly();
+}
+
+function updateDataTitle() {
+  document.getElementById('dataSecTitle').textContent =
+    `${dataView==='month' ? 'Monthly Data' : 'Weekly Data'}: ${pgLbl()}`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PRODUCT TOGGLE
+═══════════════════════════════════════════════════════════════ */
+function togglePG(pg) {
+  if (selectedPGs.includes(pg)) {
+    if (selectedPGs.length === 1) return;
+    selectedPGs = selectedPGs.filter(p => p !== pg);
+  } else {
+    selectedPGs.push(pg); selectedPGs.sort();
+  }
+  document.getElementById('chip-Bee').className    = 'pg-chip' + (selectedPGs.includes('Bee')   ?' ab':'');
+  document.getElementById('chip-Hornet').className = 'pg-chip' + (selectedPGs.includes('Hornet')?' ah':'');
+  renderAll();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER ALL
+═══════════════════════════════════════════════════════════════ */
+function renderAll() {
+  const { f, t } = slice();
+  const comb = combined(), inv = combinedInv();
+  const avS  = comb.av.slice(f,t), rcvS = comb.rcv.slice(f,t), dlvS = comb.dlv.slice(f,t);
+  const totAV  = avS.reduce((a,b)=>a+b,0);
+  const totRcv = rcvS.reduce((a,b)=>a+b,0);
+  const totDlv = dlvS.reduce((a,b)=>a+b,0);
+  const label  = pgLbl(), ac = accentForPG();
+  const snapDateStr = isLive ? ddLbl(today()) : ddLbl(snapDate);
+
+  document.getElementById('execSubLabel').textContent = label;
+  updateSubtitle(); updateDataTitle();
+
+  /* KPI cards */
+  const vals = { av: totAV, rcv: totRcv, dlv: totDlv };
+  document.getElementById('kpiRow').innerHTML = KPI_CFG.map(k => `
+    <div class="kpi ${k.cls}">
+      <span class="kpi-badge">${k.badgeName}</span>
+      <div>
+        <p class="kpi-lbl">${label} total</p>
+        <p class="kpi-val">${fmt(vals[k.key])}</p>
+      </div>
+      <p class="kpi-desc">${k.desc}</p>
+    </div>`).join('');
+
+  /* Inventory snapshot */
+  const invMetrics = Object.entries(inv);
+  const invTotal   = invMetrics.reduce((a,[,v]) => a+v, 0);
+  document.getElementById('invPanel').innerHTML = `
+    <div class="inv-panel" style="border-left:3px solid ${ac.color}">
+      <div class="inv-hdr">
+        <span class="inv-title">Inventory Snapshot: ${label}</span>
+        <span class="inv-date" style="background:${ac.bg};color:${ac.tx}">As of ${snapDateStr}</span>
+      </div>
+      <div class="inv-metrics">
+        ${invMetrics.map(([k,v]) => `
+          <div class="im">
+            <p class="im-lbl">${k}</p>
+            <p class="im-val" style="color:${INV_COLORS[k]}">${fmt(v)}</p>
+          </div>`).join('')}
+      </div>
+      <div class="flow-rows">
+        ${invMetrics.map(([k,v]) => {
+          const w = Math.round(v/invTotal*100);
+          return `<div class="flow-row">
+            <span class="fl">${k}</span>
+            <div class="fb"><div class="ff" style="width:${w}%;background:${INV_COLORS[k]}"></div></div>
+            <span class="fpct">${pct(v,invTotal)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+  renderWeekly();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER WEEKLY/MONTHLY CHART + TABLE
+═══════════════════════════════════════════════════════════════ */
+function renderWeekly() {
+  const { f, t } = slice();
+  const comb = combined();
+  let labels, avS, rcvS, dlvS, isWeekView;
+
+  if (dataView === 'month') {
+    const md = monthlyData(comb);
+    labels=md.labels; avS=md.av; rcvS=md.rcv; dlvS=md.dlv; isWeekView=false;
+  } else {
+    labels = WW_META.slice(f,t).map(wwLbl);
+    avS  = comb.av.slice(f,t);
+    rcvS = comb.rcv.slice(f,t);
+    dlvS = comb.dlv.slice(f,t);
+    isWeekView = true;
+  }
+
+  if (barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label:'AV Shipments',          data:avS,  backgroundColor:'rgba(55,138,221,.8)',  borderColor:'#378ADD', borderWidth:1 },
+        { label:'Received',              data:rcvS, backgroundColor:'rgba(239,159,39,.8)',  borderColor:'#EF9F27', borderWidth:1 },
+        { label:'Delivered to Customers',data:dlvS, backgroundColor:'rgba(99,153,34,.8)',   borderColor:'#639922', borderWidth:1 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode:'index', intersect:false, backgroundColor:'#fff', titleColor:'#1a1a18', bodyColor:'#6b6b60', borderColor:'#e0dfd8', borderWidth:1, padding:10, bodySpacing:6 }
+      },
+      scales: {
+        x: { grid:{ display:false }, ticks:{ font:{ size: isWeekView?10:12 }, autoSkip:false, maxRotation: isWeekView?45:0, minRotation: isWeekView?45:0, color:'#6b6b60' } },
+        y: { grid:{ color:'rgba(0,0,0,.06)' }, ticks:{ font:{ size:11 }, callback: v => v>=1000 ? Math.round(v/1000)+'k' : v, color:'#6b6b60' }, border:{ display:false } }
+      }
+    }
+  });
+
+  /* Table */
+  document.getElementById('tblHead').innerHTML =
+    '<th>Metric</th>' + labels.map(w => `<th>${w}</th>`).join('');
+
+  const dateRow = isWeekView
+    ? `<tr class="row-date"><td>Week of</td>${WW_DATES.slice(f,t).map(d=>`<td>${d}</td>`).join('')}</tr>`
+    : '';
+
+  document.getElementById('tblBody').innerHTML = dateRow +
+    `<tr><td><span class="pill p-av">AV Shipments</span></td>${avS.map(v=>`<td>${fmt(v)}</td>`).join('')}</tr>` +
+    `<tr><td><span class="pill p-rc">Received</span></td>${rcvS.map(v=>`<td>${fmt(v)}</td>`).join('')}</tr>` +
+    `<tr><td><span class="pill p-dl">Delivered to Customers</span></td>${dlvS.map(v=>`<td>${fmt(v)}</td>`).join('')}</tr>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SUBTITLE
+═══════════════════════════════════════════════════════════════ */
+function updateSubtitle() {
+  document.getElementById('viewBadge').textContent  = isLive ? 'Live Data' : ddLbl(snapDate);
+  document.getElementById('viewBadge').className    = isLive ? 'snap-live' : 'snap-hist';
+  document.getElementById('viewingLabel').textContent = pgLbl();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CALENDAR
+═══════════════════════════════════════════════════════════════ */
+function shiftMonth(dir) {
+  calMonth += dir;
+  if (calMonth < 0)  { calMonth=11; calYear--; }
+  if (calMonth > 11) { calMonth=0;  calYear++; }
+  renderCal();
+}
+
+function renderCal() {
+  document.getElementById('calMonthLbl').textContent = `${MO_CAL[calMonth]} ${calYear}`;
+  const snapKeys = new Set(snapshots.map(s => s.dateKey));
+  const todayK   = today();
+  const days = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  let html = days.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  const firstDay    = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  for (let i=0; i<firstDay; i++) html += `<div class="cal-day"></div>`;
+  for (let day=1; day<=daysInMonth; day++) {
+    const key = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const isToday  = key === todayK;
+    const hasSnap  = snapKeys.has(key);
+    const isSel    = key === snapDate && !isLive;
+    let cls = 'cal-day';
+    if (isToday) cls += ' tl';
+    else if (isSel)   cls += ' sel';
+    else if (hasSnap) cls += ' hs';
+    const click = isToday ? `onclick="selectLive()"` : hasSnap ? `onclick="selectDay('${key}')"` : '';
+    html += `<div class="${cls}" ${click}>${day}</div>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+}
+
+function selectDay(key) {
+  const snap = snapshots.find(s => s.dateKey===key);
+  if (!snap) return;
+  currentData = JSON.parse(JSON.stringify(snap.data));
+  currentInv  = JSON.parse(JSON.stringify(snap.inv));
+  isLive = false; snapDate = key;
+  const d   = new Date(key+'T12:00:00');
+  const lbl = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  document.getElementById('calBtnLabel').textContent = lbl;
+  closeAll(); updateSubtitle(); renderCal(); renderAll();
+}
+
+function selectLive() {
+  currentData = JSON.parse(JSON.stringify(LIVE_DATA));
+  currentInv  = JSON.parse(JSON.stringify(LIVE_INV));
+  isLive = true; snapDate = null;
+  document.getElementById('calBtnLabel').textContent = 'View History';
+  closeAll(); updateSubtitle(); renderCal(); renderAll();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AUTO SNAPSHOT  (saves today's data in localStorage)
+═══════════════════════════════════════════════════════════════ */
+function autoSnapshot() {
+  const key      = today();
+  const existing = snapshots.find(s => s.dateKey===key);
+  const payload  = { dateKey:key, data: JSON.parse(JSON.stringify(LIVE_DATA)), inv: JSON.parse(JSON.stringify(LIVE_INV)) };
+  if (existing) { Object.assign(existing, payload); }
+  else          { snapshots.push(payload); }
+  try { localStorage.setItem('inv-snapshots', JSON.stringify(snapshots)); } catch(e) {}
+  renderCal();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════ */
+function init() {
+  const now = new Date();
+  calYear = now.getFullYear(); calMonth = now.getMonth();
+  try {
+    const stored = localStorage.getItem('inv-snapshots');
+    if (stored) snapshots = JSON.parse(stored);
+  } catch(e) { snapshots = []; }
+  autoSnapshot();
+  updateRangeBadge();
+  renderAll();
+}
+
+init();
+</script>
+</body>
+</html>
